@@ -87,6 +87,50 @@ def restore_folder(client, path, cutoff_datetime, verbose=False):
                          item.get('is_deleted', False), verbose)
         time.sleep(DELAY)
 
+def snapshot_file(client, path, to_path, cutoff_datetime, verbose=False):
+    revisions = client.revisions(path.encode('utf8'))
+    revision_dict = dict((parse_date(r['modified']), r) for r in revisions)
+
+    # skip if current revision is the same as it was at the cutoff
+    if max(revision_dict.keys()) < cutoff_datetime:
+        if verbose:
+            print(path.encode('utf8') + ' SKIP')
+        return
+
+    # look for the most recent revision before the cutoff
+    pre_cutoff_modtimes = [d for d in revision_dict.keys()
+                           if d < cutoff_datetime]
+    if len(pre_cutoff_modtimes) > 0:
+        modtime = max(pre_cutoff_modtimes)
+        is_deleted = revision_dict[modtime].get('is_deleted', False)
+        if not is_deleted:
+            rev = revision_dict[modtime]['rev']
+            if verbose:
+                print(path.encode('utf8') + ' ' + str(modtime))
+            remote_file = client.get_file(path.encode('utf8'), rev)
+            with open((to_path+path).encode('utf8'), 'wb') as disk_file:
+                disk_file.write(remote_file.read())
+
+
+def snapshot_folder(client, path, to_path, cutoff_datetime, verbose=False):
+    if verbose:
+        print('Restoring folder: ' + path.encode('utf8'))
+    try:
+        folder = client.metadata(path.encode('utf8'), list=True,
+                                 include_deleted=True)
+    except dropbox.rest.ErrorResponse as e:
+        print(str(e))
+        print(HELP_MESSAGE)
+        return
+    if not os.path.exists((to_path+path).encode('utf8')):
+        os.makedirs((to_path+path).encode('utf8'))
+    for item in folder.get('contents', []):
+        if item.get('is_dir', False):
+            snapshot_folder(client, item['path'], to_path, cutoff_datetime, verbose)
+        else:
+            snapshot_file(client, item['path'], to_path, cutoff_datetime, verbose)
+        time.sleep(DELAY)
+
 
 def main():
     if len(sys.argv) != 3:
@@ -95,8 +139,10 @@ def main():
     root_path_encoded, cutoff = sys.argv[1:]
     root_path = root_path_encoded.decode(sys.stdin.encoding)
     cutoff_datetime = datetime(*map(int, cutoff.split('-')))
+    to_path = cutoff.decode(sys.stdin.encoding)
     client = login('token.dat')
-    restore_folder(client, root_path, cutoff_datetime, verbose=True)
+    # restore_folder(client, root_path, cutoff_datetime, verbose=True)
+    snapshot_folder(client, root_path, to_path, cutoff_datetime, verbose=True)
 
 
 if __name__ == '__main__':
