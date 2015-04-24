@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import sys, os, dropbox, time
+import sys, os, dropbox, time, argparse
 from datetime import datetime
 
 APP_KEY = 'hacwza866qep9o6'   # INSERT APP_KEY HERE
@@ -114,7 +114,7 @@ def snapshot_file(client, path, to_path, cutoff_datetime, verbose=False):
 
 def snapshot_folder(client, path, to_path, cutoff_datetime, verbose=False):
     if verbose:
-        print('Restoring folder: ' + path.encode('utf8'))
+        print('Snapshot folder `' + path.encode('utf8') + '` to `' + to_path.encode('utf8') + '`')
     try:
         folder = client.metadata(path.encode('utf8'), list=True,
                                  include_deleted=True)
@@ -133,16 +133,22 @@ def snapshot_folder(client, path, to_path, cutoff_datetime, verbose=False):
 
 
 def main():
-    if len(sys.argv) != 3:
-        usage = 'usage: {0} ROOTPATH YYYY-MM-DD\n{1}'
-        sys.exit(usage.format(sys.argv[0], HELP_MESSAGE))
-    root_path_encoded, cutoff = sys.argv[1:]
+    parser = argparse.ArgumentParser(description='Restore a Dropbox directory to specific date, think Time Machine.')
+    parser.add_argument('root_path', help='Absolute path in Dropbox, start with /')
+    parser.add_argument('cutoff', help='Date to restore, YYYY-MM-DD')
+    parser.add_argument('-r', '--restore', help='Restore directly in Dropbox instead of download a snapshot', action='store_true')
+    args = parser.parse_args()
+
+    root_path_encoded = args.root_path
+    cutoff = args.cutoff
     root_path = root_path_encoded.decode(sys.stdin.encoding)
     cutoff_datetime = datetime(*map(int, cutoff.split('-')))
     to_path = cutoff.decode(sys.stdin.encoding)
     client = login('token.dat')
-    # restore_folder(client, root_path, cutoff_datetime, verbose=True)
-    snapshot_folder(client, root_path, to_path, cutoff_datetime, verbose=True)
+    if args.restore:
+        restore_folder(client, root_path, cutoff_datetime, verbose=True)
+    else:
+        snapshot_folder(client, root_path, to_path, cutoff_datetime, verbose=True)
 
 
 if __name__ == '__main__':
