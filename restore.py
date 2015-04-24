@@ -114,7 +114,8 @@ def snapshot_file(client, path, to_path, cutoff_datetime, verbose=False):
 
 def snapshot_folder(client, path, to_path, cutoff_datetime, verbose=False):
     if verbose:
-        print('Snapshot folder `' + path.encode('utf8') + '` to `' + to_path.encode('utf8') + '`')
+        print('Snapshot folder `' + path.encode('utf8') + '` to `'
+                + to_path.encode('utf8') + path.encode('utf8') + '`')
     try:
         folder = client.metadata(path.encode('utf8'), list=True,
                                  include_deleted=True)
@@ -144,7 +145,8 @@ def main():
     root_path = root_path_encoded.decode(sys.stdin.encoding)
     cutoff_datetime = datetime(*map(int, cutoff.split('-')))
     to_path = cutoff.decode(sys.stdin.encoding)
-    client = login('token.dat')
+    token_file = os.path.expanduser('~') + '/.dropbox-restore.token'
+    client = login(token_file)
     if args.restore:
         restore_folder(client, root_path, cutoff_datetime, verbose=True)
     else:
