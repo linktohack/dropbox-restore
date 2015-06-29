@@ -12,6 +12,12 @@ of your dropbox folder. So if your dropbox directory is at "/home/user/dropbox"
 and you want to restore "/home/user/dropbox/folder", the ROOTPATH is "/folder".
 """
 
+HISTORY_WARNING = \
+"""Dropbox only keeps historical file versions for 30 days (unless you have
+enabled extended version history). Please specify a cutoff date within the past
+30 days, or if you have extended version history, you may remove this check
+from the source code."""
+
 def authorize():
     flow = dropbox.client.DropboxOAuth2FlowNoRedirect(APP_KEY, APP_SECRET)
     authorize_url = flow.start()
@@ -144,6 +150,10 @@ def main():
     cutoff = args.cutoff
     root_path = root_path_encoded.decode(sys.stdin.encoding)
     cutoff_datetime = datetime(*map(int, cutoff.split('-')))
+    if (datetime.now() - cutoff_datetime).days >= 30:
+        sys.exit(HISTORY_WARNING)
+    if cutoff_datetime > datetime.now():
+        sys.exit('Cutoff date must be in the past')
     to_path = cutoff.decode(sys.stdin.encoding)
     token_file = os.path.expanduser('~') + '/.dropbox-restore.token'
     client = login(token_file)
